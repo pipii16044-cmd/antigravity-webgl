@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Antigravity Physics Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #030712;
+            font-family: 'Rajdhani', sans-serif;
+            color: #f3f4f6;
+            user-select: none;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .glass-panel {
+            background: rgba(10, 15, 30, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 240, 255, 0.18);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(0, 240, 255, 0.05);
+        }
+
+        .glass-button {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-button:hover {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: rgba(56, 189, 248, 0.8);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .glass-button:active {
+            transform: translateY(1px);
+        }
+
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.6), 0 0 16px rgba(6, 182, 212, 0.3);
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 9999px;
+            height: 6px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #06b6d4;
+            box-shadow: 0 0 10px #06b6d4;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.5);
+            border-radius: 2px;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            outline: none;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body class="bg-gray-950 overflow-hidden select-none">
+
+    <div id="webgl-container" class="absolute inset-0 w-full h-full z-0"></div>
+
+    <header class="absolute top-4 left-4 right-4 pointer-events-none flex justify-between items-center z-10">
+        <div class="glass-panel px-6 py-3 rounded-2xl pointer-events-auto flex items-center space-x-3">
+            <div class="w-3 h-3 rounded-full bg-cyan-400 animate-ping"></div>
+            <div>
+                <h1 class="font-orbitron text-lg font-black tracking-wider text-cyan-400 neon-text-cyan flex items-center gap-2">
+                    <i class="fa-solid fa-atom"></i> ANTIGRAVITY <span class="text-xs text-purple-400 border border-purple-500/40 px-1.5 py-0.5 rounded uppercase font-semibold">LAB</span>
+                </h1>
+                <p class="text-xs text-slate-400 font-medium">WebGL 3D Physics Vector Engine</p>
+            </div>
+        </div>
+
+        <div class="glass-panel px-4 py-2 rounded-2xl pointer-events-auto flex items-center space-x-6 text-xs text-slate-300">
+            <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>STATUS: <strong class="text-white">ACTIVE</strong></span>
+            </div>
+            <div class="border-r border-slate-700/50 h-4"></div>
+            <div>FPS: <strong id="fps-counter" class="text-cyan-400 font-mono">60</strong></div>
+        </div>
+    </header>
+
+    <aside class="absolute top-24 left-4 w-80 max-h-[calc(100vh-8rem)] glass-panel rounded-2xl p-4 overflow-y-auto z-10 flex flex-col gap-4 text-xs font-medium">
+        <div>
+            <h2 class="font-orbitron text-cyan-300 text-sm font-bold uppercase mb-2 tracking-wide flex items-center gap-2">
+                <i class="fa-solid fa-arrows-up-to-line"></i> Field Controls
+            </h2>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+                <button id="btn-antigravity" class="glass-button py-2 px-3 rounded-xl font-semibold text-cyan-300 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-arrow-up-long"></i> Anti-Gravity
+                </button>
+                <button id="btn-invert" class="glass-button py-2 px-3 rounded-xl font-semibold text-purple-300 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-arrows-up-down"></i> Invert
+                </button>
+            </div>
+
+            <div class="space-y-1 mb-3">
+                <div class="flex justify-between text-slate-300">
+                    <span>Gravity Vector Y</span>
+                    <span id="gravity-val" class="text-cyan-400 font-mono">-9.81 m/s²</span>
+                </div>
+                <input type="range" id="slider-gravity" min="-25" max="25" step="0.5" value="-9.81" class="w-full">
+            </div>
+
+            <div class="space-y-1">
+                <div class="flex justify-between text-slate-300">
+                    <span>Vortex Power</span>
+                    <span id="vortex-val" class="text-purple-400 font-mono">1.5x</span>
+                </div>
+                <input type="range" id="slider-vortex" min="0" max="5" step="0.1" value="1.5" class="w-full">
+            </div>
+        </div>
+
+        <div class="border-t border-slate-700/50"></div>
+
+        <div>
+            <h2 class="font-orbitron text-cyan-300 text-sm font-bold uppercase mb-2 tracking-wide flex items-center gap-2">
+                <i class="fa-solid fa-bolt"></i> Force Emitters
+            </h2>
+            <div class="grid grid-cols-2 gap-2">
+                <button id="btn-vortex-toggle" class="glass-button py-2.5 px-3 rounded-xl text-amber-300 flex items-center justify-center gap-2 font-semibold">
+                    <i class="fa-solid fa-hurricane"></i> Vortex Field
+                </button>
+                <button id="btn-pulse" class="glass-button py-2.5 px-3 rounded-xl text-rose-300 flex items-center justify-center gap-2 font-semibold">
+                    <i class="fa-solid fa-circle-radiation"></i> Pulse Blast
+                </button>
+            </div>
+        </div>
+
+        <div class="border-t border-slate-700/50"></div>
+
+        <div>
+            <h2 class="font-orbitron text-cyan-300 text-sm font-bold uppercase mb-2 tracking-wide flex items-center gap-2">
+                <i class="fa-solid fa-cubes"></i> Object Spawner
+            </h2>
+            <div class="grid grid-cols-4 gap-1.5 mb-2">
+                <button data-type="cube" class="spawn-btn glass-button py-2 rounded-xl text-slate-200 hover:text-cyan-300 flex flex-col items-center gap-1">
+                    <i class="fa-solid fa-cube text-base"></i> Cube
+                </button>
+                <button data-type="sphere" class="spawn-btn glass-button py-2 rounded-xl text-slate-200 hover:text-cyan-300 flex flex-col items-center gap-1">
+                    <i class="fa-solid fa-globe text-base"></i> Sphere
+                </button>
+                <button data-type="torus" class="spawn-btn glass-button py-2 rounded-xl text-slate-200 hover:text-cyan-300 flex flex-col items-center gap-1">
+                    <i class="fa-solid fa-ring text-base"></i> Torus
+                </button>
+                <button data-type="pyramid" class="spawn-btn glass-button py-2 rounded-xl text-slate-200 hover:text-cyan-300 flex flex-col items-center gap-1">
+                    <i class="fa-solid fa-shapes text-base"></i> Cone
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <button id="btn-spawn-batch" class="glass-button py-2 px-3 rounded-xl text-emerald-300 flex items-center justify-center gap-2 font-semibold">
+                    <i class="fa-solid fa-layer-group"></i> Cluster (+10)
+                </button>
+                <button id="btn-clear" class="glass-button py-2 px-3 rounded-xl text-slate-400 hover:text-rose-400 flex items-center justify-center gap-2 font-semibold">
+                    <i class="fa-solid fa-trash-can"></i> Clear
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <aside class="absolute top-24 right-4 w-72 glass-panel rounded-2xl p-4 z-10 flex flex-col gap-3 text-xs">
+        <h2 class="font-orbitron text-cyan-300 text-sm font-bold uppercase tracking-wide flex items-center gap-2 border-b border-slate-700/50 pb-2">
+            <i class="fa-solid fa-chart-line"></i> Simulation Telemetry
+        </h2>
+
+        <div class="grid grid-cols-2 gap-2 text-center">
+            <div class="bg-slate-900/60 border border-slate-800 p-2 rounded-xl">
+                <div class="text-slate-400 text-[10px]">OBJECTS</div>
+                <div id="telemetry-count" class="font-orbitron text-cyan-400 text-base font-bold">0</div>
+            </div>
+            <div class="bg-slate-900/60 border border-slate-800 p-2 rounded-xl">
+                <div class="text-slate-400 text-[10px]">AVG SPEED</div>
+                <div id="telemetry-speed" class="font-orbitron text-purple-400 text-base font-bold">0.00 m/s</div>
+            </div>
+        </div>
+
+        <div class="space-y-2 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800/80">
+            <div class="flex justify-between items-center">
+                <span class="text-slate-400">Mean Float Altitude:</span>
+                <span id="telemetry-alt" class="font-mono text-purple-300 font-bold">0.00 m</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="text-slate-400">Vortex Turbulence:</span>
+                <span id="telemetry-vortex-status" class="font-mono text-emerald-400 font-bold">ONLINE</span>
+            </div>
+        </div>
+    </aside>
+
+    <script>
+        const CONFIG = {
+            gravity: -9.81,
+            vortexForce: 1.5,
+            vortexActive: true,
+            maxObjects: 80,
+            boundSize: 35,
+            damping: 0.98,
+            restitution: 0.75
+        };
+
+        let scene, camera, renderer, controls;
+        let physicsObjects = [];
+        let particles, particleGeo, particleMat;
+        let shockwaveRings = [];
+        let vortexEmitterMesh;
+        let raycaster, mouse;
+
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let currentFps = 60;
+
+        class PhysicsBody {
+            constructor(mesh, mass = 1.0, shapeType = 'sphere') {
+                this.mesh = mesh;
+                this.mass = mass;
+                this.shapeType = shapeType;
+                this.position = mesh.position;
+                this.velocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 2,
+                    Math.random() * 2,
+                    (Math.random() - 0.5) * 2
+                );
+                this.angularVelocity = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.1,
+                    (Math.random() - 0.5) * 0.1,
+                    (Math.random() - 0.5) * 0.1
+                );
+                this.radius = mesh.geometry.boundingSphere ? mesh.geometry.boundingSphere.radius * mesh.scale.x : 1.0;
+            }
+
+            update(dt) {
+                this.velocity.y += CONFIG.gravity * dt;
+
+                if (CONFIG.vortexActive && CONFIG.vortexForce > 0) {
+                    const distFromCenter = Math.sqrt(this.position.x * this.position.x + this.position.z * this.position.z);
+                    const vortexRadius = 25;
+
+                    if (distFromCenter < vortexRadius) {
+                        const factor = (1 - distFromCenter / vortexRadius) * CONFIG.vortexForce;
+                        const tangentialX = -this.position.z * factor * 1.8;
+                        const tangentialZ = this.position.x * factor * 1.8;
+                        const upwardLift = Math.max(0, (15 - Math.abs(this.position.y)) * factor * 0.4);
+
+                        this.velocity.x += tangentialX * dt;
+                        this.velocity.z += tangentialZ * dt;
+                        this.velocity.y += upwardLift * dt;
+                    }
+                }
+
+                this.velocity.multiplyScalar(CONFIG.damping);
+                this.position.addScaledVector(this.velocity, dt);
+
+                this.mesh.rotation.x += this.angularVelocity.x;
+                this.mesh.rotation.y += this.angularVelocity.y;
+                this.mesh.rotation.z += this.angularVelocity.z;
+
+                const b = CONFIG.boundSize;
+                const floorY = 0.5 + this.radius;
+
+                if (this.position.y < floorY) {
+                    this.position.y = floorY;
+                    this.velocity.y = -this.velocity.y * CONFIG.restitution;
+                    this.angularVelocity.multiplyScalar(0.8);
+                }
+
+                if (this.position.y > b * 1.5) {
+                    this.position.y = b * 1.5;
+                    this.velocity.y = -this.velocity.y * CONFIG.restitution;
+                }
+
+                if (Math.abs(this.position.x) > b) {
+                    this.position.x = Math.sign(this.position.x) * b;
+                    this.velocity.x = -this.velocity.x * CONFIG.restitution;
+                }
+                if (Math.abs(this.position.z) > b) {
+                    this.position.z = Math.sign(this.position.z) * b;
+                    this.velocity.z = -this.velocity.z * CONFIG.restitution;
+                }
+            }
+
+            applyImpulse(forceVector) {
+                this.velocity.add(forceVector.clone().divideScalar(this.mass));
+            }
+        }
+
+        function initScene() {
+            const container = document.getElementById('webgl-container');
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x030712, 0.015);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 20, 45);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 + 0.05;
+            controls.target.set(0, 8, 0);
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            setupLighting();
+            setupEnvironment();
+            setupParticleField();
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('pointerdown', onPointerDown);
+
+            spawnCluster(15);
+            animate(0);
+        }
+
+        function setupLighting() {
+            const ambientLight = new THREE.AmbientLight(0x0f172a, 1.5);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0x38bdf8, 2.0);
+            dirLight.position.set(20, 40, 20);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            const lightCyan = new THREE.PointLight(0x06b6d4, 4, 50);
+            lightCyan.position.set(-15, 5, -15);
+            scene.add(lightCyan);
+
+            const lightPurple = new THREE.PointLight(0xa855f7, 4, 50);
+            lightPurple.position.set(15, 5, 15);
+            scene.add(lightPurple);
+        }
+
+        function setupEnvironment() {
+            const floorGeo = new THREE.PlaneGeometry(80, 80);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.2, metalness: 0.8 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            const grid = new THREE.GridHelper(80, 40, 0x06b6d4, 0x1e293b);
+            grid.position.y = 0.05;
+            scene.add(grid);
+
+            const padGeo = new THREE.CylinderGeometry(8, 9, 0.6, 32);
+            const padMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.1, emissive: 0x06b6d4, emissiveIntensity: 0.3 });
+            vortexEmitterMesh = new THREE.Mesh(padGeo, padMat);
+            vortexEmitterMesh.position.y = 0.3;
+            vortexEmitterMesh.receiveShadow = true;
+            scene.add(vortexEmitterMesh);
+        }
+
+        function setupParticleField() {
+            const count = 1000;
+            particleGeo = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+
+            const color1 = new THREE.Color(0x06b6d4);
+            const color2 = new THREE.Color(0xa855f7);
+
+            for (let i = 0; i < count; i++) {
+                positions[i * 3] = (Math.random() - 0.5) * 90;
+                positions[i * 3 + 1] = Math.random() * 50;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 90;
+
+                const mixedColor = color1.clone().lerp(color2, Math.random());
+                colors[i * 3] = mixedColor.r;
+                colors[i * 3 + 1] = mixedColor.g;
+                colors[i * 3 + 2] = mixedColor.b;
+            }
+
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            particleMat = new THREE.PointsMaterial({ size: 0.4, vertexColors: true, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending });
+            particles = new THREE.Points(particleGeo, particleMat);
+            scene.add(particles);
+        }
+
+        function spawnObject(type = 'cube', position = null) {
+            if (physicsObjects.length >= CONFIG.maxObjects) {
+                const oldObj = physicsObjects.shift();
+                scene.remove(oldObj.mesh);
+            }
+
+            let geometry;
+            const size = 1.2 + Math.random() * 0.8;
+
+            switch (type) {
+                case 'sphere': geometry = new THREE.SphereGeometry(size, 24, 24); break;
+                case 'torus': geometry = new THREE.TorusGeometry(size * 0.8, size * 0.3, 16, 32); break;
+                case 'pyramid': geometry = new THREE.ConeGeometry(size, size * 1.8, 4); break;
+                case 'cube': default: geometry = new THREE.BoxGeometry(size, size, size); break;
+            }
+
+            const palette = [0x06b6d4, 0x38bdf8, 0xa855f7, 0xec4899, 0x10b981];
+            const chosenColor = palette[Math.floor(Math.random() * palette.length)];
+
+            const material = new THREE.MeshStandardMaterial({
+                color: chosenColor,
+                metalness: 0.6,
+                roughness: 0.15,
+                emissive: chosenColor,
+                emissiveIntensity: 0.25
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            if (position) {
+                mesh.position.copy(position);
+            } else {
+                mesh.position.set((Math.random() - 0.5) * 16, 5 + Math.random() * 12, (Math.random() - 0.5) * 16);
+            }
+
+            scene.add(mesh);
+            const body = new PhysicsBody(mesh, 1.0, type);
+            physicsObjects.push(body);
+        }
+
+        function spawnCluster(count = 10) {
+            const types = ['cube', 'sphere', 'torus', 'pyramid'];
+            for (let i = 0; i < count; i++) {
+                spawnObject(types[Math.floor(Math.random() * types.length)]);
+            }
+        }
+
+        function triggerShockwave() {
+            const ringGeo = new THREE.RingGeometry(0.5, 1.8, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending });
+
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.rotation.x = -Math.PI / 2;
+            ringMesh.position.set(0, 1.0, 0);
+            scene.add(ringMesh);
+
+            shockwaveRings.push({ mesh: ringMesh, scale: 1, maxScale: 35, opacity: 1.0 });
+
+            physicsObjects.forEach(body => {
+                const dir = body.position.clone().sub(new THREE.Vector3(0, 1, 0));
+                const dist = Math.max(1, dir.length());
+                dir.normalize();
+                const impulseMagnitude = Math.max(0, (40 - dist) * 1.2);
+                dir.multiplyScalar(impulseMagnitude);
+                dir.y += Math.abs(impulseMagnitude) * 0.5;
+                body.applyImpulse(dir);
+            });
+        }
+
+        function onPointerDown(event) {
+            if (event.clientX < 340 && event.clientY < 600) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(physicsObjects.map(b => b.mesh));
+
+            if (intersects.length > 0) {
+                const hitMesh = intersects[0].object;
+                const body = physicsObjects.find(b => b.mesh === hitMesh);
+                if (body) {
+                    const impulse = new THREE.Vector3((Math.random() - 0.5) * 15, 20 + Math.random() * 10, (Math.random() - 0.5) * 15);
+                    body.applyImpulse(impulse);
+                }
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate(timestamp) {
+            requestAnimationFrame(animate);
+
+            const dt = 0.016;
+
+            frameCount++;
+            if (timestamp - lastTime >= 1000) {
+                currentFps = frameCount;
+                frameCount = 0;
+                lastTime = timestamp;
+                document.getElementById('fps-counter').innerText = currentFps;
+            }
+
+            let totalSpeed = 0;
+            let totalAlt = 0;
+
+            physicsObjects.forEach(body => {
+                body.update(dt);
+                totalSpeed += body.velocity.length();
+                totalAlt += body.position.y;
+            });
+
+            for (let i = shockwaveRings.length - 1; i >= 0; i--) {
+                const ring = shockwaveRings[i];
+                ring.scale += 1.2;
+                ring.opacity -= 0.025;
+                ring.mesh.scale.set(ring.scale, ring.scale, 1);
+                ring.mesh.material.opacity = ring.opacity;
+
+                if (ring.opacity <= 0 || ring.scale >= ring.maxScale) {
+                    scene.remove(ring.mesh);
+                    shockwaveRings.splice(i, 1);
+                }
+            }
+
+            if (vortexEmitterMesh && CONFIG.vortexActive) {
+                vortexEmitterMesh.rotation.y += 0.015;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+
+            updateTelemetryUI(totalSpeed, totalAlt);
+        }
+
+        function updateTelemetryUI(totalSpeed, totalAlt) {
+            const count = physicsObjects.length;
+            const avgSpeed = count > 0 ? (totalSpeed / count).toFixed(2) : '0.00';
+            const avgAlt = count > 0 ? (totalAlt / count).toFixed(2) : '0.00';
+
+            document.getElementById('telemetry-count').innerText = count;
+            document.getElementById('telemetry-speed').innerText = `${avgSpeed} m/s`;
+            document.getElementById('telemetry-alt').innerText = `${avgAlt} m`;
+            document.getElementById('telemetry-vortex-status').innerText = CONFIG.vortexActive ? 'ONLINE' : 'STANDBY';
+        }
+
+        function setupUIListeners() {
+            document.getElementById('btn-antigravity').addEventListener('click', () => {
+                CONFIG.gravity = 5.0;
+                document.getElementById('slider-gravity').value = 5.0;
+                document.getElementById('gravity-val').innerText = '5.00 m/s²';
+            });
+
+            document.getElementById('btn-invert').addEventListener('click', () => {
+                CONFIG.gravity = -CONFIG.gravity;
+                document.getElementById('slider-gravity').value = CONFIG.gravity;
+                document.getElementById('gravity-val').innerText = `${CONFIG.gravity.toFixed(2)} m/s²`;
+            });
+
+            document.getElementById('slider-gravity').addEventListener('input', (e) => {
+                CONFIG.gravity = parseFloat(e.target.value);
+                document.getElementById('gravity-val').innerText = `${CONFIG.gravity.toFixed(2)} m/s²`;
+            });
+
+            document.getElementById('slider-vortex').addEventListener('input', (e) => {
+                CONFIG.vortexForce = parseFloat(e.target.value);
+                document.getElementById('vortex-val').innerText = `${CONFIG.vortexForce.toFixed(1)}x`;
+            });
+
+            document.getElementById('btn-vortex-toggle').addEventListener('click', () => {
+                CONFIG.vortexActive = !CONFIG.vortexActive;
+            });
+
+            document.getElementById('btn-pulse').addEventListener('click', triggerShockwave);
+
+            document.querySelectorAll('.spawn-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    spawnObject(btn.getAttribute('data-type'));
+                });
+            });
+
+            document.getElementById('btn-spawn-batch').addEventListener('click', () => spawnCluster(10));
+
+            document.getElementById('btn-clear').addEventListener('click', () => {
+                physicsObjects.forEach(obj => scene.remove(obj.mesh));
+                physicsObjects = [];
+            });
+        }
+
+        window.onload = function() {
+            initScene();
+            setupUIListeners();
+        };
+    </script>
+</body>
+</html>
